@@ -195,7 +195,7 @@ actor AIService {
 
         // OpenRouter attribution headers (optional but appreciated)
         if settings.selectedProvider == .openRouter {
-            req.setValue("AI-IOS-Assistant", forHTTPHeaderField: "X-Title")
+            req.setValue("AI-IOS-Asistant", forHTTPHeaderField: "X-Title")
             req.setValue("https://github.com/AloneMick/AI-IOS-Asistant", forHTTPHeaderField: "HTTP-Referer")
         }
 

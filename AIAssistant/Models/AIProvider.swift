@@ -169,7 +169,7 @@ extension AIModel {
 
     // Together AI
     static let togetherModels: [AIModel] = [
-        AIModel(id: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", displayName: "Llama 3.1 405B", supportsVision: false, contextWindow: 130_815, description: "Meta · El más potente"),
+        AIModel(id: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", displayName: "Llama 3.1 405B", supportsVision: false, contextWindow: 131_072, description: "Meta · El más potente"),
         AIModel(id: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",  displayName: "Llama 3.1 70B",  supportsVision: false, contextWindow: 131_072, description: "Meta · Equilibrado"),
         AIModel(id: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",   displayName: "Llama 3.1 8B",   supportsVision: false, contextWindow: 131_072, description: "Meta · Rápido"),
         AIModel(id: "mistralai/Mixtral-8x7B-Instruct-v0.1",           displayName: "Mixtral 8x7B",   supportsVision: false, contextWindow: 32_768,  description: "Mistral AI · MoE"),
