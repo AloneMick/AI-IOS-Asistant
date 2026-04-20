@@ -1,6 +1,6 @@
 # AI iOS Assistant 🤖✨
 
-**Más potente que Apple Intelligence** — Un asistente de IA de última generación para iOS, construido con SwiftUI, GPT-4o y capacidades multimodales completas.
+**Más potente que Apple Intelligence** — Un asistente de IA de última generación para iOS, construido con SwiftUI. Soporta **OpenAI, Groq, OpenRouter, Together AI, Ollama y LM Studio** — incluyendo decenas de modelos open-source completamente gratis.
 
 ---
 
@@ -8,7 +8,9 @@
 
 | Característica | Descripción |
 |---|---|
-| 🧠 **GPT-4o / GPT-4 Turbo** | Motor de IA de última generación con 128k tokens de contexto |
+| 🔀 **Multi-proveedor** | OpenAI, Groq, OpenRouter, Together AI, Ollama, LM Studio, Custom |
+| 🆓 **Modelos gratuitos** | Llama 3.3, Mistral, Gemma, DeepSeek R1, Phi-3 y más sin coste |
+| 🔒 **100% local con Ollama** | Sin API Key, sin internet. Privacidad total en tu Mac |
 | 📡 **Streaming en tiempo real** | Respuestas token a token, como ChatGPT |
 | 🎙️ **Modo voz full-duplex** | Habla → IA → TTS. Manos libres total. |
 | 👁️ **Visión multimodal** | Envía imágenes desde cámara o galería para análisis |
@@ -16,7 +18,6 @@
 | 💾 **Historial persistente** | SwiftData con búsqueda, fijado y organización |
 | ⚡ **System prompt configurable** | Dale cualquier personalidad o rol al asistente |
 | 🎨 **UI premium** | Glass morphism, animaciones fluidas, estilo Apple |
-| 🔒 **Privacidad** | API Key almacenada solo en UserDefaults local |
 
 ---
 
@@ -24,7 +25,7 @@
 
 - **Xcode 15+** (para SwiftData y `@Observable`)
 - **iOS 17.0+** (mínimo)
-- **API Key de OpenAI** → [platform.openai.com](https://platform.openai.com/api-keys)
+- **API Key** (opcional — no necesaria para Ollama o LM Studio)
 
 ---
 
@@ -95,10 +96,11 @@ AIAssistant/
 ├── Models/
 │   ├── Message.swift              # @Model SwiftData — mensajes con rol, contenido, imagen
 │   ├── Conversation.swift         # @Model SwiftData — conversaciones con mensajes
-│   └── AppSettings.swift          # @Observable — configuración con UserDefaults
+│   ├── AppSettings.swift          # @Observable — configuración multi-proveedor
+│   └── AIProvider.swift           # AIProvider enum + catálogos de modelos por proveedor
 │
 ├── Services/
-│   ├── AIService.swift            # Actor — OpenAI API, streaming SSE, visión multimodal
+│   ├── AIService.swift            # Actor — multi-proveedor, streaming SSE, visión multimodal
 │   ├── SpeechManager.swift        # @Observable — STT (SFSpeechRecognizer) + TTS (AVSpeechSynthesizer)
 │   └── DeviceIntegrationService.swift  # @Observable — Calendar, Reminders, Contacts
 │
@@ -106,10 +108,10 @@ AIAssistant/
 │   └── ChatViewModel.swift        # @Observable — MVVM orchestrator, estado de chat
 │
 ├── Views/
-│   ├── ConversationView.swift     # Vista principal de chat con streaming, imágenes, barra de entrada
+│   ├── ConversationView.swift     # Vista principal de chat con banner proveedor/modelo
 │   ├── MessageBubbleView.swift    # Burbujas de mensaje con código, TTS, copiar
 │   ├── VoiceModeView.swift        # Modo manos libres full-screen con waveform animado
-│   ├── SettingsView.swift         # Ajustes completos: modelo, temperatura, voz, system prompt
+│   ├── SettingsView.swift         # Proveedor picker + modelo por proveedor + API key + host
 │   ├── HistoryView.swift          # Historial con búsqueda, swipe, fijado
 │   └── ImagePickerView.swift      # Wrapper de UIImagePickerController
 │
@@ -121,7 +123,7 @@ AIAssistant/
 ### Patrón: MVVM + Actor Services
 
 ```
-View ──► ChatViewModel (@Observable) ──► AIService (actor)
+View ──► ChatViewModel (@Observable) ──► AIService (actor) ──► [AIProvider endpoint]
               │                       └──► SpeechManager (@Observable)
               │                       └──► DeviceIntegrationService (@Observable)
               └──► SwiftData (ModelContext) ──► Conversation / Message (@Model)
@@ -129,11 +131,37 @@ View ──► ChatViewModel (@Observable) ──► AIService (actor)
 
 ---
 
+## 🌐 Proveedores soportados
+
+| Proveedor | Modelos destacados | API Key | Coste | Privacidad |
+|---|---|---|---|---|
+| **OpenAI** | GPT-4o, GPT-4 Turbo | Sí | Pago | Cloud |
+| **Groq** | Llama 3.3 70B, Mixtral, Gemma | Sí | **Gratis** (tier) | Cloud |
+| **OpenRouter** | 200+ modelos, DeepSeek R1, Llama, Claude | Sí | **Gratis** (muchos) | Cloud |
+| **Together AI** | Llama 3.1 405B, DeepSeek R1, Qwen 2.5 | Sí | **Gratis** (tier) | Cloud |
+| **Ollama** | Llama 3.2, Mistral, Phi-3, Gemma, LLaVA | ❌ No | **Gratis** | **100% local** |
+| **LM Studio** | Cualquier modelo GGUF | ❌ No | **Gratis** | **100% local** |
+| **Custom** | vLLM, Llama.cpp server, etc. | Opcional | Variable | Tú decides |
+
+### Modelos open-source recomendados (gratuitos)
+
+| Modelo | Proveedor | Contexto | Destacado |
+|---|---|---|---|
+| Llama 3.3 70B | Groq / OpenRouter / Together | 128K | 🏆 Mejor calidad open-source |
+| DeepSeek R1 | OpenRouter / Together / Ollama | 65K | 🧠 Razonamiento superior |
+| Mixtral 8x7B | Groq / OpenRouter / Ollama | 32K | ⚡ MoE, muy rápido |
+| Mistral 7B | Groq / OpenRouter / Ollama | 32K | 🆓 Siempre gratis |
+| Phi-3 Mini | OpenRouter / Ollama | 128K | 🪶 Ultra-ligero |
+| Gemma 2 9B | Groq / OpenRouter / Ollama | 8K | 🔬 Google open-source |
+| LLaVA | Ollama | 4K | 👁️ Visión local |
+
+---
+
 ## 🔥 Comparativa vs Apple Intelligence
 
 | Capacidad | Apple Intelligence | Este Asistente |
 |---|---|---|
-| Modelo base | Apple Foundation Model | GPT-4o (128k ctx) |
+| Modelo base | Apple Foundation Model | GPT-4o, Llama 3.3, DeepSeek R1 y más |
 | Visión multimodal | Limitada | ✅ Full — cámara + galería |
 | Streaming | No | ✅ Token a token |
 | Modo voz | Siri | ✅ Full-duplex, manos libres |
@@ -141,7 +169,10 @@ View ──► ChatViewModel (@Observable) ──► AIService (actor)
 | Historial | No | ✅ SwiftData con búsqueda |
 | Integración calendario | Siri Shortcuts | ✅ EventKit nativo |
 | Código (bloques) | No | ✅ Syntax highlighting, copiar |
-| Multi-modelo | No | ✅ GPT-4o, GPT-4T, GPT-3.5 |
+| Multi-modelo | No | ✅ 7 proveedores, 30+ modelos |
+| Open Source | No | ✅ Llama, Mistral, Gemma, etc. |
+| Sin coste | No | ✅ Groq/OpenRouter/Ollama gratis |
+| Privacidad total | No | ✅ Ollama/LM Studio 100% local |
 
 ---
 

@@ -1,79 +1,73 @@
 import Foundation
 import Observation
 
-// MARK: - AI Model
-
-struct AIModel: Identifiable, Hashable {
-    let id: String
-    let displayName: String
-    let supportsVision: Bool
-    let contextWindow: Int
-    let description: String
-}
-
-extension AIModel {
-    static let gpt4o = AIModel(
-        id: "gpt-4o",
-        displayName: "GPT-4o",
-        supportsVision: true,
-        contextWindow: 128_000,
-        description: "Más rápido y potente. Soporta imágenes."
-    )
-    static let gpt4oMini = AIModel(
-        id: "gpt-4o-mini",
-        displayName: "GPT-4o Mini",
-        supportsVision: true,
-        contextWindow: 128_000,
-        description: "Rápido y económico."
-    )
-    static let gpt4turbo = AIModel(
-        id: "gpt-4-turbo",
-        displayName: "GPT-4 Turbo",
-        supportsVision: true,
-        contextWindow: 128_000,
-        description: "Alta capacidad de razonamiento."
-    )
-    static let gpt35turbo = AIModel(
-        id: "gpt-3.5-turbo",
-        displayName: "GPT-3.5 Turbo",
-        supportsVision: false,
-        contextWindow: 16_385,
-        description: "Respuestas muy rápidas."
-    )
-
-    static let all: [AIModel] = [.gpt4o, .gpt4oMini, .gpt4turbo, .gpt35turbo]
-}
-
 // MARK: - AppSettings
 
 @Observable
 final class AppSettings {
 
-    // MARK: Keys
+    // MARK: UserDefaults Keys
     private enum Keys {
-        static let apiKey           = "openai_api_key"
-        static let selectedModelID  = "selected_model_id"
-        static let systemPrompt     = "system_prompt"
-        static let temperature      = "temperature"
-        static let maxTokens        = "max_tokens"
-        static let voiceEnabled     = "voice_enabled"
-        static let autoSpeak        = "auto_speak"
-        static let hapticFeedback   = "haptic_feedback"
-        static let contextWindow    = "context_window"
-        static let streamingEnabled = "streaming_enabled"
-        static let selectedVoice    = "selected_voice"
-        static let speechRate       = "speech_rate"
-        static let accentColor      = "accent_color"
-        static let darkModeForced   = "dark_mode_forced"
+        static let selectedProvider     = "selected_provider"
+        static let selectedModelID      = "selected_model_id"
+        static let apiKeys              = "provider_api_keys"   // JSON dict [provider.rawValue: key]
+        static let customEndpoint       = "custom_endpoint"
+        static let ollamaHost           = "ollama_host"
+        static let lmStudioHost         = "lm_studio_host"
+        static let systemPrompt         = "system_prompt"
+        static let temperature          = "temperature"
+        static let maxTokens            = "max_tokens"
+        static let voiceEnabled         = "voice_enabled"
+        static let autoSpeak            = "auto_speak"
+        static let hapticFeedback       = "haptic_feedback"
+        static let contextWindow        = "context_window"
+        static let streamingEnabled     = "streaming_enabled"
+        static let selectedVoice        = "selected_voice"
+        static let speechRate           = "speech_rate"
     }
 
-    // MARK: Properties
-    var apiKey: String {
-        didSet { UserDefaults.standard.set(apiKey, forKey: Keys.apiKey) }
+    // MARK: Provider & model
+    var selectedProvider: AIProvider {
+        didSet {
+            UserDefaults.standard.set(selectedProvider.rawValue, forKey: Keys.selectedProvider)
+            // Auto-select the first model of the new provider if the current model doesn't belong to it
+            if !selectedProvider.availableModels.contains(where: { $0.id == selectedModelID }) {
+                selectedModelID = selectedProvider.defaultModelID
+            }
+        }
     }
+
     var selectedModelID: String {
         didSet { UserDefaults.standard.set(selectedModelID, forKey: Keys.selectedModelID) }
     }
+
+    // MARK: Per-provider API keys
+    /// Stored as JSON dictionary in UserDefaults so each provider has its own key.
+    var apiKeys: [String: String] {
+        didSet { saveAPIKeys() }
+    }
+
+    /// Convenience: API key for the currently selected provider
+    var apiKey: String {
+        get { apiKeys[selectedProvider.rawValue] ?? "" }
+        set {
+            apiKeys[selectedProvider.rawValue] = newValue
+            saveAPIKeys()
+        }
+    }
+
+    // MARK: Custom endpoints
+    var ollamaHost: String {
+        didSet { UserDefaults.standard.set(ollamaHost, forKey: Keys.ollamaHost) }
+    }
+    var lmStudioHost: String {
+        didSet { UserDefaults.standard.set(lmStudioHost, forKey: Keys.lmStudioHost) }
+    }
+    var customEndpoint: String {
+        didSet { UserDefaults.standard.set(customEndpoint, forKey: Keys.customEndpoint) }
+    }
+
+    // MARK: AI behavior
     var systemPrompt: String {
         didSet { UserDefaults.standard.set(systemPrompt, forKey: Keys.systemPrompt) }
     }
@@ -83,20 +77,19 @@ final class AppSettings {
     var maxTokens: Int {
         didSet { UserDefaults.standard.set(maxTokens, forKey: Keys.maxTokens) }
     }
-    var voiceEnabled: Bool {
-        didSet { UserDefaults.standard.set(voiceEnabled, forKey: Keys.voiceEnabled) }
-    }
-    var autoSpeak: Bool {
-        didSet { UserDefaults.standard.set(autoSpeak, forKey: Keys.autoSpeak) }
-    }
-    var hapticFeedback: Bool {
-        didSet { UserDefaults.standard.set(hapticFeedback, forKey: Keys.hapticFeedback) }
-    }
     var contextWindowSize: Int {
         didSet { UserDefaults.standard.set(contextWindowSize, forKey: Keys.contextWindow) }
     }
     var streamingEnabled: Bool {
         didSet { UserDefaults.standard.set(streamingEnabled, forKey: Keys.streamingEnabled) }
+    }
+
+    // MARK: Voice
+    var voiceEnabled: Bool {
+        didSet { UserDefaults.standard.set(voiceEnabled, forKey: Keys.voiceEnabled) }
+    }
+    var autoSpeak: Bool {
+        didSet { UserDefaults.standard.set(autoSpeak, forKey: Keys.autoSpeak) }
     }
     var selectedVoiceIdentifier: String {
         didSet { UserDefaults.standard.set(selectedVoiceIdentifier, forKey: Keys.selectedVoice) }
@@ -105,18 +98,46 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(speechRate, forKey: Keys.speechRate) }
     }
 
-    // MARK: Computed
-    var selectedModel: AIModel {
-        AIModel.all.first { $0.id == selectedModelID } ?? .gpt4o
+    // MARK: Interface
+    var hapticFeedback: Bool {
+        didSet { UserDefaults.standard.set(hapticFeedback, forKey: Keys.hapticFeedback) }
     }
 
-    var isConfigured: Bool { !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    // MARK: Computed helpers
+
+    var selectedModel: AIModel {
+        selectedProvider.availableModels.first { $0.id == selectedModelID }
+            ?? selectedProvider.availableModels.first
+            ?? AIModel(id: selectedModelID, displayName: selectedModelID,
+                       supportsVision: false, contextWindow: 4096, description: "")
+    }
+
+    /// The effective base URL for the current provider (respects user-overridden hosts)
+    var activeBaseURL: String {
+        switch selectedProvider {
+        case .ollama:    return ollamaHost.isEmpty   ? selectedProvider.defaultBaseURL : normalizedHost(ollamaHost)
+        case .lmStudio:  return lmStudioHost.isEmpty ? selectedProvider.defaultBaseURL : normalizedHost(lmStudioHost)
+        case .custom:    return customEndpoint
+        default:         return selectedProvider.defaultBaseURL
+        }
+    }
+
+    var isConfigured: Bool {
+        if !selectedProvider.requiresAPIKey { return !activeBaseURL.isEmpty }
+        return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     // MARK: Init
     init() {
         let ud = UserDefaults.standard
-        apiKey              = ud.string(forKey: Keys.apiKey) ?? ""
-        selectedModelID     = ud.string(forKey: Keys.selectedModelID) ?? AIModel.gpt4o.id
+
+        let providerRaw = ud.string(forKey: Keys.selectedProvider) ?? AIProvider.openAI.rawValue
+        selectedProvider    = AIProvider(rawValue: providerRaw) ?? .openAI
+        selectedModelID     = ud.string(forKey: Keys.selectedModelID) ?? AIProvider.openAI.defaultModelID
+        apiKeys             = AppSettings.loadAPIKeys()
+        ollamaHost          = ud.string(forKey: Keys.ollamaHost) ?? ""
+        lmStudioHost        = ud.string(forKey: Keys.lmStudioHost) ?? ""
+        customEndpoint      = ud.string(forKey: Keys.customEndpoint) ?? ""
         systemPrompt        = ud.string(forKey: Keys.systemPrompt) ?? AppSettings.defaultSystemPrompt
         temperature         = ud.object(forKey: Keys.temperature) as? Double ?? 0.7
         maxTokens           = ud.object(forKey: Keys.maxTokens) as? Int ?? 4096
@@ -138,4 +159,26 @@ final class AppSettings {
     Siempre buscas dar la respuesta más útil, completa y honesta posible. \
     Hablas el idioma que el usuario use contigo.
     """
+
+    // MARK: Private
+
+    private func saveAPIKeys() {
+        guard let data = try? JSONSerialization.data(withJSONObject: apiKeys) else { return }
+        UserDefaults.standard.set(data, forKey: Keys.apiKeys)
+    }
+
+    private static func loadAPIKeys() -> [String: String] {
+        guard
+            let data = UserDefaults.standard.data(forKey: Keys.apiKeys),
+            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else { return [:] }
+        return dict
+    }
+
+    private func normalizedHost(_ host: String) -> String {
+        var h = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !h.hasPrefix("http") { h = "http://" + h }
+        if h.hasSuffix("/") { h = String(h.dropLast()) }
+        return h + "/v1"
+    }
 }

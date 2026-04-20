@@ -4,6 +4,7 @@ import Foundation
 
 enum AIServiceError: LocalizedError {
     case missingAPIKey
+    case missingEndpoint
     case invalidResponse
     case httpError(statusCode: Int, message: String)
     case networkError(Error)
@@ -11,7 +12,9 @@ enum AIServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            return "API Key no configurada. Ve a Ajustes para añadirla."
+            return "API Key no configurada. Ve a Ajustes → selecciona tu proveedor y añade la Key."
+        case .missingEndpoint:
+            return "Endpoint no configurado. Revisa Ajustes → URL del servidor local."
         case .invalidResponse:
             return "Respuesta inválida del servidor."
         case .httpError(let code, let msg):
@@ -52,7 +55,6 @@ actor AIService {
 
     static let shared = AIService()
 
-    private let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private let session: URLSession
 
     private init() {
@@ -62,9 +64,9 @@ actor AIService {
         session = URLSession(configuration: cfg)
     }
 
-    // MARK: Streaming
+    // MARK: - Streaming
 
-    /// Streams the response token by token.  Returns the full accumulated text.
+    /// Streams the response token by token. Returns the full accumulated text.
     func streamCompletion(
         messages: [Message],
         settings: AppSettings,
@@ -98,7 +100,7 @@ actor AIService {
         return fullText
     }
 
-    // MARK: Non-streaming
+    // MARK: - Non-streaming
 
     func completion(
         messages: [Message],
@@ -119,7 +121,7 @@ actor AIService {
         return decoded.choices.first?.message.content ?? ""
     }
 
-    // MARK: Private
+    // MARK: - Request builder
 
     private func buildURLRequest(
         messages: [Message],
@@ -128,10 +130,19 @@ actor AIService {
         stream: Bool
     ) throws -> URLRequest {
 
-        let trimmedKey = settings.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedKey.isEmpty else { throw AIServiceError.missingAPIKey }
+        // Validate endpoint
+        let baseURL = settings.activeBaseURL
+        guard !baseURL.isEmpty, let endpoint = URL(string: baseURL + "/chat/completions") else {
+            throw AIServiceError.missingEndpoint
+        }
 
-        // Compose API messages array
+        // Validate API key (only for providers that require it)
+        let trimmedKey = settings.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if settings.selectedProvider.requiresAPIKey && trimmedKey.isEmpty {
+            throw AIServiceError.missingAPIKey
+        }
+
+        // Build messages array
         var apiMessages: [[String: Any]] = [
             ["role": "system", "content": settings.systemPrompt]
         ]
@@ -161,18 +172,33 @@ actor AIService {
             }
         }
 
-        let body: [String: Any] = [
+        // Body — some providers don't accept max_tokens with vision; keep it safe
+        var body: [String: Any] = [
             "model": settings.selectedModelID,
             "messages": apiMessages,
             "temperature": settings.temperature,
-            "max_tokens": settings.maxTokens,
             "stream": stream
         ]
 
+        // Ollama uses "num_predict" instead of max_tokens, but also accepts max_tokens via the compat layer
+        body["max_tokens"] = settings.maxTokens
+
+        // OpenRouter requires an extra header for attribution (recommended, not required)
         var req = URLRequest(url: endpoint)
         req.httpMethod = "POST"
-        req.setValue("Bearer \(trimmedKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Auth header — local providers (Ollama, LM Studio) work without one, but also accept Bearer
+        if !trimmedKey.isEmpty {
+            req.setValue("Bearer \(trimmedKey)", forHTTPHeaderField: "Authorization")
+        }
+
+        // OpenRouter attribution headers (optional but appreciated)
+        if settings.selectedProvider == .openRouter {
+            req.setValue("AI-IOS-Assistant", forHTTPHeaderField: "X-Title")
+            req.setValue("https://github.com/AloneMick/AI-IOS-Asistant", forHTTPHeaderField: "HTTP-Referer")
+        }
+
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         return req
     }

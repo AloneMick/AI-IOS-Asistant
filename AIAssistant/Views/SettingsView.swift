@@ -7,9 +7,9 @@ struct SettingsView: View {
 
     @Bindable var settings: AppSettings
     @State private var showAPIKey = false
-    @State private var showSystemPromptEditor = false
     @State private var testingConnection = false
     @State private var connectionStatus: ConnectionStatus?
+    @State private var showProviderInfo = false
 
     enum ConnectionStatus { case success, failure(String) }
 
@@ -17,18 +17,11 @@ struct SettingsView: View {
         NavigationStack {
             List {
 
-                // MARK: API
-                Section {
-                    apiKeyRow
-                    modelPickerRow
-                    Button("Probar conexión") { Task { await testConnection() } }
-                        .disabled(testingConnection || !settings.isConfigured)
-                    if let status = connectionStatus { connectionStatusRow(status) }
-                } header: {
-                    Label("API de OpenAI", systemImage: "key.fill")
-                } footer: {
-                    Text("Obtén tu API Key en platform.openai.com")
-                }
+                // MARK: Provider picker
+                providerSection
+
+                // MARK: Model picker
+                modelSection
 
                 // MARK: AI Behavior
                 Section {
@@ -74,6 +67,190 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Provider section
+
+    private var providerSection: some View {
+        Section {
+            // Provider picker grid
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(AIProvider.allCases) { provider in
+                    providerCard(provider)
+                }
+            }
+            .padding(.vertical, 4)
+            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+
+            // Info about selected provider
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.blue)
+                    .padding(.top, 2)
+                Text(settings.selectedProvider.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            // API Key row (only for providers that need it)
+            if settings.selectedProvider.requiresAPIKey {
+                apiKeyRow
+
+                if !settings.selectedProvider.apiKeyURL.isEmpty {
+                    Link(destination: URL(string: settings.selectedProvider.apiKeyURL)!) {
+                        HStack {
+                            Image(systemName: "safari")
+                                .foregroundStyle(.blue)
+                            Text("Obtener API Key →")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+            }
+
+            // Host override for local providers
+            if settings.selectedProvider == .ollama {
+                hostRow(label: "Host Ollama", placeholder: "http://192.168.1.x:11434", binding: $settings.ollamaHost)
+            }
+            if settings.selectedProvider == .lmStudio {
+                hostRow(label: "Host LM Studio", placeholder: "http://localhost:1234", binding: $settings.lmStudioHost)
+            }
+            if settings.selectedProvider == .custom {
+                hostRow(label: "Endpoint base", placeholder: "http://...:8080/v1", binding: $settings.customEndpoint)
+            }
+
+            // Connection test
+            Button {
+                Task { await testConnection() }
+            } label: {
+                HStack {
+                    if testingConnection {
+                        ProgressView().scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "wifi")
+                    }
+                    Text(testingConnection ? "Probando…" : "Probar conexión")
+                }
+            }
+            .disabled(testingConnection || !settings.isConfigured)
+
+            if let status = connectionStatus { connectionStatusRow(status) }
+
+        } header: {
+            Label("Proveedor de IA", systemImage: "cpu.fill")
+        }
+    }
+
+    private func providerCard(_ provider: AIProvider) -> some View {
+        let isSelected = settings.selectedProvider == provider
+        return Button {
+            settings.selectedProvider = provider
+            connectionStatus = nil
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: provider.icon)
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? .white : .primary)
+                Text(provider.displayName)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                if provider.isOpenSource {
+                    Text("Open Source")
+                        .font(.system(size: 9))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(isSelected ? Color.white.opacity(0.25) : Color.green.opacity(0.15))
+                        .foregroundStyle(isSelected ? .white : .green)
+                        .clipShape(Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected
+                        ? LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(colors: [Color(UIColor.secondarySystemGroupedBackground)], startPoint: .top, endPoint: .bottom)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.clear : Color(UIColor.separator).opacity(0.5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Model section
+
+    private var modelSection: some View {
+        Section {
+            ForEach(settings.selectedProvider.availableModels) { model in
+                Button {
+                    settings.selectedModelID = model.id
+                } label: {
+                    HStack(spacing: 12) {
+                        // Selection indicator
+                        Image(systemName: settings.selectedModelID == model.id ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(settings.selectedModelID == model.id ? .purple : .secondary)
+                            .font(.title3)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(model.displayName)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                if model.supportsVision {
+                                    Image(systemName: "eye.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.teal)
+                                }
+                                Spacer()
+                                Text("\(model.contextWindow / 1000)K ctx")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                            Text(model.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // For Ollama/LM Studio/Custom: allow free-text model ID
+            if [AIProvider.ollama, .lmStudio, .custom].contains(settings.selectedProvider) {
+                customModelRow
+            }
+
+        } header: {
+            Label("Modelo", systemImage: "sparkles")
+        } footer: {
+            if settings.selectedProvider == .ollama {
+                Text("Asegúrate de haber ejecutado `ollama pull <modelo>` en tu Mac antes de usarlo.")
+            } else if settings.selectedProvider == .openRouter {
+                Text("Los modelos marcados :free no tienen coste. Consulta openrouter.ai para el catálogo completo.")
+            }
+        }
+    }
+
+    private var customModelRow: some View {
+        HStack {
+            Image(systemName: "keyboard")
+                .foregroundStyle(.orange)
+            TextField("ID de modelo personalizado", text: $settings.selectedModelID)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .font(.caption)
+        }
+    }
+
     // MARK: - API Key
 
     private var apiKeyRow: some View {
@@ -81,11 +258,11 @@ struct SettingsView: View {
             Image(systemName: "key")
                 .foregroundStyle(.orange)
             if showAPIKey {
-                TextField("sk-...", text: $settings.apiKey)
+                TextField(settings.selectedProvider.apiKeyPlaceholder, text: $settings.apiKey)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             } else {
-                SecureField("API Key", text: $settings.apiKey)
+                SecureField(settings.selectedProvider.apiKeyPlaceholder, text: $settings.apiKey)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             }
@@ -98,20 +275,20 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Model picker
+    // MARK: - Host row (Ollama / LM Studio / Custom)
 
-    private var modelPickerRow: some View {
+    private func hostRow(label: String, placeholder: String, binding: Binding<String>) -> some View {
         HStack {
-            Image(systemName: "cpu")
+            Image(systemName: "network")
                 .foregroundStyle(.blue)
-            Picker("Modelo", selection: $settings.selectedModelID) {
-                ForEach(AIModel.all) { model in
-                    VStack(alignment: .leading) {
-                        Text(model.displayName)
-                        Text(model.description).font(.caption).foregroundStyle(.secondary)
-                    }
-                    .tag(model.id)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField(placeholder, text: binding)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .font(.body)
             }
         }
     }
@@ -268,10 +445,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("AI iOS Assistant")
                 .font(.headline)
-            Text("Versión 1.0 • Powered by OpenAI GPT-4o")
+            Text("Versión 1.0 • Multi-proveedor: OpenAI, Groq, OpenRouter, Together AI, Ollama, LM Studio")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Más potente que Apple Intelligence")
+            Text("Más potente que Apple Intelligence · Open Source friendly")
                 .font(.caption2)
                 .foregroundStyle(.purple)
         }

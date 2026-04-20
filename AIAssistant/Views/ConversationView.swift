@@ -42,6 +42,25 @@ struct ConversationView: View {
             }
             .navigationTitle(viewModel.currentConversation?.title ?? "AI Assistant")
             .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                // Subtle provider/model banner below the nav bar
+                HStack(spacing: 6) {
+                    Image(systemName: viewModel.settings.selectedProvider.icon)
+                        .font(.caption2)
+                    Text("\(viewModel.settings.selectedProvider.displayName) · \(viewModel.settings.selectedModel.displayName)")
+                        .font(.caption2)
+                    if viewModel.settings.selectedModel.supportsVision {
+                        Image(systemName: "eye.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.teal)
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity)
+                .background(.ultraThinMaterial)
+            }
             .toolbar { toolbarContent }
             .sheet(isPresented: $showVoiceMode) {
                 VoiceModeView(viewModel: viewModel)
@@ -118,7 +137,7 @@ struct ConversationView: View {
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("Más potente que Apple Intelligence.\nPregúntame cualquier cosa.")
+            Text("Más potente que Apple Intelligence.\nCon OpenAI, Llama, Mistral, Gemma y más.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
