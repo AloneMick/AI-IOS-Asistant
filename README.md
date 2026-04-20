@@ -1,6 +1,6 @@
 # AI iOS Assistant 🤖✨
 
-**Más potente que Apple Intelligence** — Un asistente de IA de última generación para iOS, construido con SwiftUI. Soporta **OpenAI, Groq, OpenRouter, Together AI, Ollama y LM Studio** — incluyendo decenas de modelos open-source completamente gratis.
+**Más potente que Apple Intelligence** — Un asistente de IA de última generación para iPhone, construido con SwiftUI. Soporta **OpenAI, Groq, OpenRouter, Together AI** y endpoints personalizados — incluyendo decenas de modelos open-source completamente gratis.
 
 ---
 
@@ -8,9 +8,9 @@
 
 | Característica | Descripción |
 |---|---|
-| 🔀 **Multi-proveedor** | OpenAI, Groq, OpenRouter, Together AI, Ollama, LM Studio, Custom |
+| 🔀 **Multi-proveedor** | OpenAI, Groq, OpenRouter, Together AI, Custom |
 | 🆓 **Modelos gratuitos** | Llama 3.3, Mistral, Gemma, DeepSeek R1, Phi-3 y más sin coste |
-| 🔒 **100% local con Ollama** | Sin API Key, sin internet. Privacidad total en tu Mac |
+| ☁️ **APIs en la nube** | Todo funciona desde iPhone — sin servidores locales |
 | 📡 **Streaming en tiempo real** | Respuestas token a token, como ChatGPT |
 | 🎙️ **Modo voz full-duplex** | Habla → IA → TTS. Manos libres total. |
 | 👁️ **Visión multimodal** | Envía imágenes desde cámara o galería para análisis |
@@ -23,9 +23,9 @@
 
 ## 📋 Requisitos
 
-- **Xcode 15+** (para SwiftData y `@Observable`)
-- **iOS 17.0+** (mínimo)
-- **API Key** (opcional — no necesaria para Ollama o LM Studio)
+- **Xcode 16+** (para SwiftData y `@Observable`)
+- **iOS 18.0+** (mínimo)
+- **API Key** de uno de los proveedores cloud (Groq y OpenRouter tienen tier gratuito)
 
 ---
 
@@ -133,27 +133,26 @@ View ──► ChatViewModel (@Observable) ──► AIService (actor) ──►
 
 ## 🌐 Proveedores soportados
 
-| Proveedor | Modelos destacados | API Key | Coste | Privacidad |
-|---|---|---|---|---|
-| **OpenAI** | GPT-4o, GPT-4 Turbo | Sí | Pago | Cloud |
-| **Groq** | Llama 3.3 70B, Mixtral, Gemma | Sí | **Gratis** (tier) | Cloud |
-| **OpenRouter** | 200+ modelos, DeepSeek R1, Llama, Claude | Sí | **Gratis** (muchos) | Cloud |
-| **Together AI** | Llama 3.1 405B, DeepSeek R1, Qwen 2.5 | Sí | **Gratis** (tier) | Cloud |
-| **Ollama** | Llama 3.2, Mistral, Phi-3, Gemma, LLaVA | ❌ No | **Gratis** | **100% local** |
-| **LM Studio** | Cualquier modelo GGUF | ❌ No | **Gratis** | **100% local** |
-| **Custom** | vLLM, Llama.cpp server, etc. | Opcional | Variable | Tú decides |
+| Proveedor | Modelos destacados | API Key | Coste |
+|---|---|---|---|
+| **OpenAI** | GPT-4o, GPT-4 Turbo | Sí | Pago |
+| **Groq** | Llama 3.3 70B, Mixtral, Gemma | Sí | **Gratis** (tier) |
+| **OpenRouter** | 200+ modelos, DeepSeek R1, Llama, Claude | Sí | **Gratis** (muchos) |
+| **Together AI** | Llama 3.1 405B, DeepSeek R1, Qwen 2.5 | Sí | **Gratis** (tier) |
+| **Custom** | vLLM, Llama.cpp en VPS, etc. | Opcional | Variable |
+
+> **Nota:** Ollama y LM Studio son servidores de escritorio (macOS/Linux/Windows) y no son compatibles con iOS. Para inferencia privada desde iPhone, usa un VPS con vLLM o Llama.cpp server y configúralo como endpoint personalizado.
 
 ### Modelos open-source recomendados (gratuitos)
 
 | Modelo | Proveedor | Contexto | Destacado |
 |---|---|---|---|
 | Llama 3.3 70B | Groq / OpenRouter / Together | 128K | 🏆 Mejor calidad open-source |
-| DeepSeek R1 | OpenRouter / Together / Ollama | 65K | 🧠 Razonamiento superior |
-| Mixtral 8x7B | Groq / OpenRouter / Ollama | 32K | ⚡ MoE, muy rápido |
-| Mistral 7B | Groq / OpenRouter / Ollama | 32K | 🆓 Siempre gratis |
-| Phi-3 Mini | OpenRouter / Ollama | 128K | 🪶 Ultra-ligero |
-| Gemma 2 9B | Groq / OpenRouter / Ollama | 8K | 🔬 Google open-source |
-| LLaVA | Ollama | 4K | 👁️ Visión local |
+| DeepSeek R1 | OpenRouter / Together | 65K | 🧠 Razonamiento superior |
+| Mixtral 8x7B | Groq / OpenRouter | 32K | ⚡ MoE, muy rápido |
+| Mistral 7B | Groq / OpenRouter | 32K | 🆓 Siempre gratis |
+| Phi-3 Mini | OpenRouter | 128K | 🪶 Ultra-ligero |
+| Gemma 2 9B | Groq / OpenRouter | 8K | 🔬 Google open-source |
 
 ---
 
@@ -169,10 +168,9 @@ View ──► ChatViewModel (@Observable) ──► AIService (actor) ──►
 | Historial | No | ✅ SwiftData con búsqueda |
 | Integración calendario | Siri Shortcuts | ✅ EventKit nativo |
 | Código (bloques) | No | ✅ Syntax highlighting, copiar |
-| Multi-modelo | No | ✅ 7 proveedores, 30+ modelos |
-| Open Source | No | ✅ Llama, Mistral, Gemma, etc. |
-| Sin coste | No | ✅ Groq/OpenRouter/Ollama gratis |
-| Privacidad total | No | ✅ Ollama/LM Studio 100% local |
+| Multi-modelo | No | ✅ 5 proveedores cloud + Custom endpoint |
+| Sin coste | No | ✅ Groq/OpenRouter/Together gratis |
+| iOS 18+ | Requiere iPhone compatible | ✅ Diseñado para iOS 18 |
 
 ---
 

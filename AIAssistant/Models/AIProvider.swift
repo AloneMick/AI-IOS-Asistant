@@ -2,17 +2,18 @@ import Foundation
 
 // MARK: - AIProvider
 
-/// Represents a backend that serves chat completions.
+/// Represents a cloud backend that serves chat completions.
 /// All providers listed here expose an OpenAI-compatible `/v1/chat/completions` endpoint,
 /// which means the same AIService request builder works for all of them — only the
 /// base URL, authentication header, and available models differ.
+///
+/// Note: This app targets iOS 18+. Local desktop servers such as Ollama and LM Studio
+/// run on macOS/Linux/Windows and are therefore not supported.
 enum AIProvider: String, CaseIterable, Identifiable, Codable {
     case openAI      = "openai"
     case groq        = "groq"
     case openRouter  = "openrouter"
     case together    = "together"
-    case ollama      = "ollama"
-    case lmStudio    = "lmstudio"
     case custom      = "custom"
 
     var id: String { rawValue }
@@ -25,8 +26,6 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         case .groq:       return "Groq"
         case .openRouter: return "OpenRouter"
         case .together:   return "Together AI"
-        case .ollama:     return "Ollama (local)"
-        case .lmStudio:   return "LM Studio (local)"
         case .custom:     return "Endpoint personalizado"
         }
     }
@@ -37,8 +36,6 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         case .groq:       return "bolt.fill"
         case .openRouter: return "arrow.triangle.2.circlepath"
         case .together:   return "person.2.fill"
-        case .ollama:     return "desktopcomputer"
-        case .lmStudio:   return "laptopcomputer"
         case .custom:     return "gear.badge"
         }
     }
@@ -47,14 +44,14 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .openAI:                          return false
         case .groq, .openRouter, .together,
-             .ollama, .lmStudio, .custom:      return true
+             .custom:                          return true
         }
     }
 
     var requiresAPIKey: Bool {
         switch self {
-        case .ollama, .lmStudio: return false
-        default:                 return true
+        case .custom: return false
+        default:      return true
         }
     }
 
@@ -78,15 +75,13 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Default base URL (can be overridden by the user for ollama/lmstudio/custom)
+    /// Default base URL (can be overridden by the user for custom endpoints)
     var defaultBaseURL: String {
         switch self {
         case .openAI:     return "https://api.openai.com/v1"
         case .groq:       return "https://api.groq.com/openai/v1"
         case .openRouter: return "https://openrouter.ai/api/v1"
         case .together:   return "https://api.together.xyz/v1"
-        case .ollama:     return "http://localhost:11434/v1"
-        case .lmStudio:   return "http://localhost:1234/v1"
         case .custom:     return ""
         }
     }
@@ -98,17 +93,13 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         case .openAI:
             return "GPT-4o, GPT-4 Turbo y GPT-3.5. Modelos privados de OpenAI."
         case .groq:
-            return "Llama 3, Mixtral, Gemma. Inferencia ultra-rápida. Tier gratuito disponible."
+            return "Llama 3, Mixtral, Gemma. Inferencia ultra-rápida en la nube. Tier gratuito disponible."
         case .openRouter:
             return "Más de 200 modelos: Llama, Mistral, Claude, Gemini. Un solo key para todos."
         case .together:
-            return "Llama 3, Mistral, Qwen. Open-source models en la nube. Tier gratuito."
-        case .ollama:
-            return "Ejecuta modelos localmente en tu Mac. 100% privado, sin internet ni API Key."
-        case .lmStudio:
-            return "Servidor local compatible con OpenAI. Carga cualquier modelo GGUF."
+            return "Llama 3, Mistral, Qwen. Modelos open-source en la nube. Tier gratuito."
         case .custom:
-            return "Cualquier endpoint compatible con la API de OpenAI (vLLM, Llama.cpp server, etc.)"
+            return "Cualquier endpoint remoto compatible con la API de OpenAI (vLLM, Llama.cpp en VPS, etc.)"
         }
     }
 
@@ -120,9 +111,7 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable {
         case .groq:       return AIModel.groqModels
         case .openRouter: return AIModel.openRouterModels
         case .together:   return AIModel.togetherModels
-        case .ollama:     return AIModel.ollamaModels
-        case .lmStudio:   return AIModel.localModels
-        case .custom:     return AIModel.localModels
+        case .custom:     return AIModel.customModels
         }
     }
 
@@ -177,27 +166,8 @@ extension AIModel {
         AIModel(id: "deepseek-ai/DeepSeek-R1",                        displayName: "DeepSeek R1",    supportsVision: false, contextWindow: 65_536,  description: "DeepSeek · Razonamiento")
     ]
 
-    // Ollama — local models (user must pull them first with `ollama pull <name>`)
-    static let ollamaModels: [AIModel] = [
-        AIModel(id: "llama3.2",         displayName: "Llama 3.2 (3B)",    supportsVision: false, contextWindow: 128_000, description: "Meta · Ligero · ollama pull llama3.2"),
-        AIModel(id: "llama3.2:1b",      displayName: "Llama 3.2 (1B)",    supportsVision: false, contextWindow: 128_000, description: "Meta · Ultra-ligero"),
-        AIModel(id: "llama3.1",         displayName: "Llama 3.1 (8B)",    supportsVision: false, contextWindow: 128_000, description: "Meta · Equilibrado"),
-        AIModel(id: "llama3.1:70b",     displayName: "Llama 3.1 (70B)",   supportsVision: false, contextWindow: 128_000, description: "Meta · Alta calidad (requiere ~40GB RAM)"),
-        AIModel(id: "mistral",          displayName: "Mistral 7B",        supportsVision: false, contextWindow: 32_768,  description: "Mistral AI · Rápido"),
-        AIModel(id: "mixtral",          displayName: "Mixtral 8x7B",      supportsVision: false, contextWindow: 32_768,  description: "Mistral AI · MoE"),
-        AIModel(id: "phi3",             displayName: "Phi-3 Mini",        supportsVision: false, contextWindow: 4_096,   description: "Microsoft · Muy ligero"),
-        AIModel(id: "phi3:medium",      displayName: "Phi-3 Medium",      supportsVision: false, contextWindow: 128_000, description: "Microsoft · Equilibrado"),
-        AIModel(id: "gemma2",           displayName: "Gemma 2 (9B)",      supportsVision: false, contextWindow: 8_192,   description: "Google · Open"),
-        AIModel(id: "gemma2:2b",        displayName: "Gemma 2 (2B)",      supportsVision: false, contextWindow: 8_192,   description: "Google · Ultra-ligero"),
-        AIModel(id: "qwen2.5",          displayName: "Qwen 2.5 (7B)",     supportsVision: false, contextWindow: 128_000, description: "Alibaba · Multilingüe"),
-        AIModel(id: "qwen2.5:72b",      displayName: "Qwen 2.5 (72B)",    supportsVision: false, contextWindow: 128_000, description: "Alibaba · Potente"),
-        AIModel(id: "deepseek-r1",      displayName: "DeepSeek R1 (7B)",  supportsVision: false, contextWindow: 65_536,  description: "DeepSeek · Razonamiento"),
-        AIModel(id: "llava",            displayName: "LLaVA (visión)",     supportsVision: true,  contextWindow: 4_096,   description: "Visión multimodal local"),
-        AIModel(id: "codellama",        displayName: "Code Llama",        supportsVision: false, contextWindow: 16_384,  description: "Meta · Especializado en código")
-    ]
-
-    // LM Studio / generic local
-    static let localModels: [AIModel] = [
-        AIModel(id: "local-model", displayName: "Modelo cargado en LM Studio", supportsVision: false, contextWindow: 4_096, description: "El modelo activo en tu servidor local")
+    // Custom / self-hosted remote endpoint (vLLM, Llama.cpp server on a VPS, etc.)
+    static let customModels: [AIModel] = [
+        AIModel(id: "custom-model", displayName: "Modelo del endpoint", supportsVision: false, contextWindow: 4_096, description: "El modelo activo en tu servidor remoto")
     ]
 }

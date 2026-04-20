@@ -107,15 +107,9 @@ struct SettingsView: View {
                 }
             }
 
-            // Host override for local providers
-            if settings.selectedProvider == .ollama {
-                hostRow(label: "Host Ollama", placeholder: "http://192.168.1.x:11434", binding: $settings.ollamaHost)
-            }
-            if settings.selectedProvider == .lmStudio {
-                hostRow(label: "Host LM Studio", placeholder: "http://localhost:1234", binding: $settings.lmStudioHost)
-            }
+            // Host override for custom endpoint
             if settings.selectedProvider == .custom {
-                hostRow(label: "Endpoint base", placeholder: "http://...:8080/v1", binding: $settings.customEndpoint)
+                hostRow(label: "Endpoint base", placeholder: "https://tu-servidor.com/v1", binding: $settings.customEndpoint)
             }
 
             // Connection test
@@ -224,18 +218,18 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
 
-            // For Ollama/LM Studio/Custom: allow free-text model ID
-            if [AIProvider.ollama, .lmStudio, .custom].contains(settings.selectedProvider) {
+            // For Custom endpoint: allow free-text model ID
+            if settings.selectedProvider == .custom {
                 customModelRow
             }
 
         } header: {
             Label("Modelo", systemImage: "sparkles")
         } footer: {
-            if settings.selectedProvider == .ollama {
-                Text("Asegúrate de haber ejecutado `ollama pull <modelo>` en tu Mac antes de usarlo.")
-            } else if settings.selectedProvider == .openRouter {
+            if settings.selectedProvider == .openRouter {
                 Text("Los modelos marcados :free no tienen coste. Consulta openrouter.ai para el catálogo completo.")
+            } else if settings.selectedProvider == .custom {
+                Text("Introduce el ID exacto del modelo que expone tu servidor remoto.")
             }
         }
     }
@@ -275,7 +269,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Host row (Ollama / LM Studio / Custom)
+    // MARK: - Host row (Custom endpoint)
 
     private func hostRow(label: String, placeholder: String, binding: Binding<String>) -> some View {
         HStack {
@@ -445,10 +439,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("AI iOS Assistant")
                 .font(.headline)
-            Text("Versión 1.0 • Multi-proveedor: OpenAI, Groq, OpenRouter, Together AI, Ollama, LM Studio")
+            Text("Versión 1.0 • Multi-proveedor: OpenAI, Groq, OpenRouter, Together AI, Custom")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Más potente que Apple Intelligence · Open Source friendly")
+            Text("Más potente que Apple Intelligence · iOS 18+ · Open Source friendly")
                 .font(.caption2)
                 .foregroundStyle(.purple)
         }

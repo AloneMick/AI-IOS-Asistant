@@ -180,7 +180,6 @@ actor AIService {
             "stream": stream
         ]
 
-        // Ollama uses "num_predict" instead of max_tokens, but also accepts max_tokens via the compat layer
         body["max_tokens"] = settings.maxTokens
 
         // OpenRouter requires an extra header for attribution (recommended, not required)
@@ -188,7 +187,7 @@ actor AIService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Auth header — local providers (Ollama, LM Studio) work without one, but also accept Bearer
+        // Auth header — custom endpoints without a key can skip the Authorization header
         if !trimmedKey.isEmpty {
             req.setValue("Bearer \(trimmedKey)", forHTTPHeaderField: "Authorization")
         }

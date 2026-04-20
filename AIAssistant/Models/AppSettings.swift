@@ -12,8 +12,6 @@ final class AppSettings {
         static let selectedModelID      = "selected_model_id"
         static let apiKeys              = "provider_api_keys"   // JSON dict [provider.rawValue: key]
         static let customEndpoint       = "custom_endpoint"
-        static let ollamaHost           = "ollama_host"
-        static let lmStudioHost         = "lm_studio_host"
         static let systemPrompt         = "system_prompt"
         static let temperature          = "temperature"
         static let maxTokens            = "max_tokens"
@@ -57,12 +55,6 @@ final class AppSettings {
     }
 
     // MARK: Custom endpoints
-    var ollamaHost: String {
-        didSet { UserDefaults.standard.set(ollamaHost, forKey: Keys.ollamaHost) }
-    }
-    var lmStudioHost: String {
-        didSet { UserDefaults.standard.set(lmStudioHost, forKey: Keys.lmStudioHost) }
-    }
     var customEndpoint: String {
         didSet { UserDefaults.standard.set(customEndpoint, forKey: Keys.customEndpoint) }
     }
@@ -112,13 +104,11 @@ final class AppSettings {
                        supportsVision: false, contextWindow: 4096, description: "")
     }
 
-    /// The effective base URL for the current provider (respects user-overridden hosts)
+    /// The effective base URL for the current provider (respects user-overridden custom endpoint)
     var activeBaseURL: String {
         switch selectedProvider {
-        case .ollama:    return ollamaHost.isEmpty   ? selectedProvider.defaultBaseURL : normalizedHost(ollamaHost)
-        case .lmStudio:  return lmStudioHost.isEmpty ? selectedProvider.defaultBaseURL : normalizedHost(lmStudioHost)
-        case .custom:    return customEndpoint
-        default:         return selectedProvider.defaultBaseURL
+        case .custom: return customEndpoint
+        default:      return selectedProvider.defaultBaseURL
         }
     }
 
@@ -135,8 +125,6 @@ final class AppSettings {
         selectedProvider    = AIProvider(rawValue: providerRaw) ?? .openAI
         selectedModelID     = ud.string(forKey: Keys.selectedModelID) ?? AIProvider.openAI.defaultModelID
         apiKeys             = AppSettings.loadAPIKeys()
-        ollamaHost          = ud.string(forKey: Keys.ollamaHost) ?? ""
-        lmStudioHost        = ud.string(forKey: Keys.lmStudioHost) ?? ""
         customEndpoint      = ud.string(forKey: Keys.customEndpoint) ?? ""
         systemPrompt        = ud.string(forKey: Keys.systemPrompt) ?? AppSettings.defaultSystemPrompt
         temperature         = ud.object(forKey: Keys.temperature) as? Double ?? 0.7
@@ -173,12 +161,5 @@ final class AppSettings {
             let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String]
         else { return [:] }
         return dict
-    }
-
-    private func normalizedHost(_ host: String) -> String {
-        var h = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !h.hasPrefix("http") { h = "http://" + h }
-        if h.hasSuffix("/") { h = String(h.dropLast()) }
-        return h + "/v1"
     }
 }
