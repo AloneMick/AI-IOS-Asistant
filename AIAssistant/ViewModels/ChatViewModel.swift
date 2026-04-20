@@ -99,7 +99,7 @@ final class ChatViewModel {
 
             if settings.streamingEnabled {
                 fullResponse = try await ai.streamCompletion(
-                    messages: messages.dropLast(),   // exclude the placeholder
+                    messages: Array(messages.dropLast()),   // exclude the placeholder
                     settings: settings,
                     imageData: imageData
                 ) { [weak self] token in
@@ -112,7 +112,7 @@ final class ChatViewModel {
                 }
             } else {
                 fullResponse = try await ai.completion(
-                    messages: messages.dropLast(),
+                    messages: Array(messages.dropLast()),
                     settings: settings,
                     imageData: imageData
                 )
@@ -230,10 +230,4 @@ final class ChatViewModel {
         let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
         return resized.jpegData(compressionQuality: 0.8)
     }
-}
-
-// MARK: - Array safe drop
-
-private extension Array {
-    func dropLast() -> ArraySlice<Element> { self.dropLast(1) }
 }

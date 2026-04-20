@@ -126,7 +126,8 @@ final class SpeechManager: NSObject {
            let voice = AVSpeechSynthesisVoice(identifier: settings.selectedVoiceIdentifier) {
             utterance.voice = voice
         } else {
-            utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.language.languageCode?.identifier ?? "en")
+            let languageCode = Locale.current.language.languageCode?.identifier ?? Locale.preferredLanguages.first ?? "en-US"
+            utterance.voice = AVSpeechSynthesisVoice(language: languageCode)
         }
 
         utterance.pitchMultiplier = 1.0
